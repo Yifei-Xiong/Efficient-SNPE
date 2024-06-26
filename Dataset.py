@@ -2,14 +2,10 @@
 
 import ctypes
 import math
-import numpy as np
 import os
+import numpy as np
 import pandas as pd
-import time
 import torch
-from torch.multiprocessing import Pool
-
-import SNPE_lib
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -29,7 +25,7 @@ class Dataset(torch.utils.data.Dataset):
 
 class Simulator:
     def __init__(self, dataset_name, device, dtype=torch.float32, normalize=False):
-        if os.sep == "/":  # input File Save Path here
+        if os.name == 'posix':  # input File Save Path here
             self.FileSavePath = ""
         else:
             self.FileSavePath = ""
@@ -43,7 +39,7 @@ class Simulator:
         self.bounded_prior = False
         self.true_theta = None
         self.normalize = normalize
-        assert dataset_name in ['two_moons', 'slcp', 'lotka', 'gandk', 'mg1']
+        assert dataset_name in ['two_moons', 'slcp', 'lotka', 'gandk', 'mg1', 'glu']
         if dataset_name == 'two_moons':
             self.dim_x = 2
             self.dim_theta = 2
@@ -124,6 +120,26 @@ class Simulator:
             self.columns = ['$\\theta_1$', '$\\theta_2$', '$\\theta_3$']
             self.reference_theta = torch.tensor(pd.read_csv(self.FileSavePath +
                                                             "output_abcr" + os.sep + "Da+4.csv").iloc[:, 1:(self.dim_theta + 1)].values,
+                                                device=self.device, dtype=self.dtype)
+        elif dataset_name == 'glu':
+            self.dim_x = 10
+            self.dim_theta = self.dim_x
+            self.unif_lower = torch.ones(self.dim_theta, device=self.device) * -1.
+            self.unif_upper = torch.ones(self.dim_theta, device=self.device) * 1.
+            self.prior = torch.distributions.Independent(
+                torch.distributions.Uniform(self.unif_lower, self.unif_upper, validate_args=False), 1)
+            self.prior_type = 'unif'
+            self.x_0 = torch.tensor([[-0.5373, -0.2386, 0.8192, 0.6407, 0.4161,
+                                      -0.0974, 1.1292, -0.0584, -0.9705, -0.9423]], device=self.device)
+            self.scale = torch.ones(self.dim_theta, device=self.device) * np.sqrt(0.1)
+            self.normal_dist = torch.distributions.MultivariateNormal(torch.zeros(self.dim_theta, device=self.device),
+                                                                      0.1 * torch.diag(torch.ones(self.dim_theta, device=self.device)))
+            self.bounded_prior = True
+            self.true_theta = torch.tensor([[-0.9527, -0.1481, 0.9824, 0.4132, 0.9904,
+                                             -0.7402, 0.7862, 0.0437, -0.6261, -0.7651]], device=torch.device('cpu'))
+            self.columns = ['$\\theta_{' + str(i) + '}$' for i in range(1, self.dim_theta + 1)]
+            self.reference_theta = torch.tensor(pd.read_csv(self.FileSavePath +
+                                                            "output_abcr" + os.sep + "Da+5.csv").iloc[:, 1:(self.dim_theta + 1)].values,
                                                 device=self.device, dtype=self.dtype)
         else:
             raise NotImplementedError
@@ -222,5 +238,7 @@ class Simulator:
                 inter_left_time[:, i] = serv_time[:, i] + torch.max(zero_tensor, arr_time[:, i] - left_time[:, i - 1])
                 left_time[:, i] = left_time[:, i - 1] + inter_left_time[:, i]
             return torch.log(torch.nanquantile(inter_left_time, quantile, dim=1).t())
+        elif self.dataset_name == 'glu':
+            return self.normal_dist.sample((batch,)) + para
         else:
             raise NotImplementedError

@@ -1,3 +1,5 @@
+# lib for SNPE
+
 import math
 import numpy as np
 import torch
@@ -331,36 +333,3 @@ class Cond_NSF(nn.Module):
 
     def gen_sample(self, sample_size, x_0, qmc_flag=False):
         return self.nsf_from_sbibm.sample(int(sample_size), x_0).squeeze(0)
-
-
-class DefaultModelParam:
-    def __init__(self):
-        self.n_layer = 8  # 8
-        self.batch_norm = False
-        self.round = 20  # total round
-        self.round_sample_size = 1000  # sample size for each round
-        self.valid_rate = 0.05  # validation ratio
-        self.valid_interval = 10
-        self.eval_sample_size = 2000  # eval sample size
-        self.medd_samp_size = self.eval_sample_size  # eval sample size
-        self.medd_round = 1
-        self.mmd_samp_size = self.eval_sample_size
-        self.mmd_round = 1
-        self.steps = 10000  # max steps
-        self.print_state = self.steps
-        self.print_state_time = 10000  # print time and valid loss
-        self.batch_size = 100  # set batch size
-        self.meshgrid_plot_point = 10
-        self.figure_dpi = 400
-        self.detected_log_file = False  # True: if file exist, exit the program
-        self.plot_loss_figure_save = True
-        self.plot_mmd_figure_save = False
-        self.plot_theta_figure_save = False
-        self.plot_density_figure_show = False
-        self.plot_density_figure_save = False
-        self.save_theta_csv = True
-        self.clear_cuda_cache = True
-        self.show_detailed_info = False
-        self.linux_path = None
-        self.manual_seed = None
-        self.calc_c2st = True

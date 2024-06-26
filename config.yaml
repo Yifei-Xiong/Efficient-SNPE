@@ -1,0 +1,28 @@
+# Description: Configuration file for the experiment
+FileSavePath_win: "" # File save path for output folder
+FileSavePath_linux: "" # File save path for output folder
+n_layer: 5  # Number of flow layers
+n_hidden:  # Number of hidden units
+  - 50
+  - 50
+rounds: 20  # Number of rounds
+round_sample_size: 1000  # Number of samples for each round
+valid_rate: 0.05  # Rate of validation set
+eval_sample_size: 2000  # Number of samples for evaluation
+max_steps_per_round: 10000  # Maximum number of steps for each round
+print_state: 1000  # Print state every n steps
+batch_size: 1000  # Batch size
+figure_dpi: 400  # DPI for figures
+proposal_update: True  # Update proposal each round
+model_compile: True  # Compile model using torch.compile()
+detected_log_file: True  # If the log file is detected, exit
+plot_loss_figure: True  # Plot loss figure
+plot_theta_figure_last_round: True  # Plot theta figure
+plot_theta_figure_each_round: False  # Plot theta figure
+save_theta_csv: True  # Save evaluation theta to csv
+save_model: True  # Save model after training
+save_log: True # Save log file
+calc_lmd: True  # Calculate log median distance (LMD)
+calc_c2st: True  # Calculate classifier 2-sample tests (C2ST)
+calc_mmd: True  # Calculate maximum mean miscrepancy (MMD)
+calc_nlog: True  # Calculate negative log likelihood (NLOG)
