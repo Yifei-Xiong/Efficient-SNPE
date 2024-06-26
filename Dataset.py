@@ -1,4 +1,4 @@
-# load dataset for SNPE model
+# simulators for different datasets
 
 import ctypes
 import math
@@ -8,19 +8,6 @@ import pandas as pd
 import torch
 
 torch.multiprocessing.set_sharing_strategy('file_system')
-
-
-class Dataset(torch.utils.data.Dataset):
-    def __init__(self, data_sample, theta_sample, extra=None):
-        self.data_sample = data_sample
-        self.theta_sample = theta_sample
-        self.extra = extra
-
-    def __len__(self):
-        return self.data_sample.shape[0]
-
-    def __getitem__(self, index):
-        return self.data_sample[index], self.theta_sample[index], self.extra[index]
 
 
 class Simulator:
