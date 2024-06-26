@@ -579,11 +579,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="config.yaml", help="config file path")
     parser.add_argument('--gpu', type=int, default=1, help='gpu_available')  # 0: cpu; 1: cuda:0, 2: cuda:1, ...
-    parser.add_argument('--method', type=str, default='SNL', help='method name')  # method should be: SNPEA, SNPEB, APT, SNL
-    parser.add_argument('--data', type=int, default=1, help='dataset')  # 0: two_moon; 1:slcp; 2:lotka; 3:g-and-k; 4:M/G/1; 5: glu
-    parser.add_argument('--seed', type=int, default=10019, help='set manual seed')
+    parser.add_argument('--method', type=str, default='SNPEB', help='method name')  # method should be: SNPEA, SNPEB, APT, SNL
+    parser.add_argument('--data', type=int, default=5, help='dataset')  # 0: two_moon; 1:slcp; 2:lotka; 3:g-and-k; 4:M/G/1; 5: glu
+    parser.add_argument('--seed', type=int, default=10000, help='set manual seed')
     parser.add_argument('--calib', type=float, default=0.0, help='set calibration value')  # 0.0: without calibration
-    parser.add_argument('--dr', type=float, default=0.2, help='set defensive rate')  # 0.0: without defensive samping
+    parser.add_argument('--dr', type=float, default=0.0, help='set defensive rate')  # 0.0: without defensive samping
     parser.add_argument('--reuse', type=int, default=0, help='sample reuse type')  # 0: no reuse; 1: type 1 loss; 2: type 2 loss
     parser.add_argument('--dt', type=int, default=1, help='enable density transformation')  # 0: no density trans; 1: use density trans
     parser.add_argument('--ess', type=float, default=0.0, help='set ess value')  # 0: disable ESS
@@ -593,7 +593,7 @@ if __name__ == '__main__':
     parser.add_argument('--ear', type=int, default=20, help='enable earlystop')  # 0: disable early stop; N: early stop torlarance = N;
     parser.add_argument('--fl', type=int, default=1, help='set flow type')  # 0: mix of gaussian(MOG), 1: NSF
     parser.add_argument('--clip', type=float, default=5.0, help='enable gradient cut')
-    parser.add_argument('--mkstr', type=str, default="i119", help='set markstr')
+    parser.add_argument('--mkstr', type=str, default="a100", help='set markstr')
     parser.add_argument('--dbg1', type=int, default=1, help='debug flag 1')
     parser.add_argument('--dbg2', type=int, default=50, help='debug flag 2')
     args = parser.parse_args()
