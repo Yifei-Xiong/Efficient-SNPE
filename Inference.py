@@ -1,6 +1,5 @@
 # Description: This file is the main file for running the inference algorithm.
 
-import SNPE_lib
 import torch
 import numpy as np
 import time
@@ -11,11 +10,12 @@ import argparse
 import os
 import copy
 import yaml
-import Dataset
 import seaborn as sns
 from sklearn.neighbors import KernelDensity
 from tqdm import tqdm
 from sbibm import metrics
+import SNPE_lib
+import Dataset
 import utils
 
 
