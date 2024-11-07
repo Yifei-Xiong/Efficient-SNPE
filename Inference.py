@@ -23,7 +23,7 @@ def main(args, config):
     # init: set simulator
     device = args.device
     calib_kernel_rate = args.calib
-    dataset_arg = ['two_moons', 'slcp', 'lotka', 'gandk', 'mg1', 'glu']
+    dataset_arg = ['two_moons', 'slcp', 'lotka', 'gandk', 'mg1', 'glu', 'gandk_real']
     print("using " + dataset_arg[args.data] + " dataset.")
     simulator = Dataset.Simulator(dataset_arg[args.data], device, torch.get_default_dtype())
     dim_x = simulator.dim_x
@@ -580,7 +580,7 @@ if __name__ == '__main__':
     parser.add_argument("--config", type=str, default="config.yaml", help="config file path")
     parser.add_argument('--gpu', type=int, default=1, help='gpu_available')  # 0: cpu; 1: cuda:0, 2: cuda:1, ...
     parser.add_argument('--method', type=str, default='SNPEB', help='method name')  # method should be: SNPEA, SNPEB, APT, SNL
-    parser.add_argument('--data', type=int, default=5, help='dataset')  # 0: two_moon; 1:slcp; 2:lotka; 3:g-and-k; 4:M/G/1; 5: glu
+    parser.add_argument('--data', type=int, default=5, help='dataset')  # 0: two_moon; 1:slcp; 2:lotka; 3:g-and-k; 4:M/G/1; 5: glu, 6: state space model
     parser.add_argument('--seed', type=int, default=10000, help='set manual seed')
     parser.add_argument('--calib', type=float, default=0.0, help='set calibration value')  # 0.0: without calibration
     parser.add_argument('--dr', type=float, default=0.0, help='set defensive rate')  # 0.0: without defensive samping

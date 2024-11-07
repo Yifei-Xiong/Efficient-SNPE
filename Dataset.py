@@ -26,7 +26,7 @@ class Simulator:
         self.bounded_prior = False
         self.true_theta = None
         self.normalize = normalize
-        assert dataset_name in ['two_moons', 'slcp', 'lotka', 'gandk', 'mg1', 'glu']
+        assert dataset_name in ['two_moons', 'slcp', 'lotka', 'gandk', 'mg1', 'glu', 'gandk_real']
         if dataset_name == 'two_moons':
             self.dim_x = 2
             self.dim_theta = 2
@@ -128,6 +128,55 @@ class Simulator:
             self.reference_theta = torch.tensor(pd.read_csv(self.FileSavePath +
                                                             "output_abcr" + os.sep + "Da+5.csv").iloc[:, 1:(self.dim_theta + 1)].values,
                                                 device=self.device, dtype=self.dtype)
+        elif dataset_name == 'gandk_real':
+            self.n_days = 28  # set this value to 28 (days) or 365 (days)
+            assert self.n_days in [28, 365]
+            self.dim_x = self.n_days * 4
+            self.dim_theta = 36
+            # get G_t and F_t
+            J2 = torch.tensor([[1, 0.001], [0, 1]], dtype=torch.float32)
+            P6 = torch.zeros(6, 6, dtype=torch.float32)
+            P6[1:, :-1] = torch.eye(5)
+            P6[0, :] = -1
+            G_i = torch.block_diag(J2, P6, torch.eye(1))
+            I4 = torch.eye(4)
+            tau = torch.ones(self.dim_theta, ) * 10000.0
+            W = torch.diag(1 / tau).to(self.device)
+            self.W_dist = torch.distributions.MultivariateNormal(torch.zeros(self.dim_theta, ).to(self.device), W)
+            self.Gt = torch.kron(G_i, I4).to(self.device)  # shape: 36 * 36
+            self.Ft_summer = torch.kron(torch.tensor([1, 0, 1, 0, 0, 0, 0, 0, 1], dtype=torch.float32), I4).to(self.device)  # shape: 4 * 36
+            self.Ft_nonsummer = torch.kron(torch.tensor([1, 0, 1, 0, 0, 0, 0, 0, 0], dtype=torch.float32), I4).to(self.device)  # shape: 4 * 36
+            self.loc = torch.zeros(36).to(self.device)
+            self.cov = torch.diag(torch.ones(36, ) * 0.1).to(self.device)
+            self.prior = torch.distributions.MultivariateNormal(self.loc, self.cov, validate_args=False)
+            self.prior_type = 'normal'
+            self.bounded_prior = False
+            if self.n_days == 365:
+                price_data = pd.read_csv(self.FileSavePath + "data" + os.sep + "price_summary.csv")
+                self.price_summary = torch.tensor(price_data.iloc[:, 1:5].values, device=self.device, dtype=self.dtype)  # shape: 365 * 4
+                self.days = torch.tensor(price_data.iloc[:, 0].values, device=self.device, dtype=torch.int32)
+                self.x_0 = self.price_summary.reshape(1, -1)
+            elif self.n_days == 28:
+                self.true_theta = torch.tensor([[
+                    0.10, -1.00, 0.20, -0.20,
+                    0.10, 0.10, -0.05, -0.05,
+                    0.10, 0.10, 0.10, 0.10,
+                    0.05, 0.05, 0.05, 0.05,
+                    0.01, 0.01, 0.01, 0.01,
+                    -0.01, -0.01, -0.01, -0.01,
+                    -0.03, -0.03, -0.03, -0.03,
+                    -0.05, -0.05, -0.05, -0.05,
+                    0.20, 0.50, 0.20, 0.20
+                ]], device=torch.device('cpu'))
+                self.days = torch.ones(28, device=self.device, dtype=torch.int32) * 100
+                self.x_0 = torch.tensor(pd.read_csv(self.FileSavePath + "data" + os.sep + "price_summary_synthetic.csv").iloc[0, 1:].values,
+                                        device=self.device, dtype=self.dtype).reshape(1, -1)
+            self.scale = torch.tensor([1.0] * 4 * self.n_days, device=self.device)
+            name_type = ['level ', 'trend ', 'week ', 'season ']
+            name_columns = ['$A$', '$\\log B$', '$g$', '$\\log(k+1/2)$']
+            # product these columns
+            self.columns = [name_type[i] + name_columns[j] for i in range(4) for j in range(4)]
+            self.col_index = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 32, 33, 34, 35]
         else:
             raise NotImplementedError
         self._x_0 = torch.clone(self.x_0)
@@ -169,9 +218,9 @@ class Simulator:
             para_c = torch.cat((para_c, rand_int), dim=1)
             path_to_cfun = ""  # set .dll or .so file here for lotka model
             if os.sep == "\\":
-                Cfun = ctypes.WinDLL(path_to_cfun + 'liblotka_c.dll', winmode=0)
+                Cfun = ctypes.WinDLL(path_to_cfun + 'lotka_volterra.dll', winmode=0)
             else:
-                Cfun = ctypes.CDLL(path_to_cfun + 'liblotka_c.so')
+                Cfun = ctypes.CDLL(path_to_cfun + 'lotka_volterra.so')
             n = self.dim_x  # length for each task
             s = 14  # set multiprocess thread num here
             k = batch  # number of tasks
@@ -227,5 +276,57 @@ class Simulator:
             return torch.log(torch.nanquantile(inter_left_time, quantile, dim=1).t())
         elif self.dataset_name == 'glu':
             return self.normal_dist.sample((batch,)) + para
+        elif self.dataset_name == 'gandk_real':
+            # generate theta sequence
+            theta_seq = torch.zeros((batch, self.dim_theta, self.n_days), device=self.device)  # shape: batch * dim_theta * days
+            theta_current = para  # shape: batch * dim_theta
+            Gt_expanded = self.Gt.expand(batch, -1, -1)
+            Ft_summer_expanded = self.Ft_summer.expand(batch, -1, -1)
+            Ft_nonsummer_expanded = self.Ft_nonsummer.expand(batch, -1, -1)
+            for day in range(self.n_days):
+                theta_seq[:, :, day] = theta_current
+                # update theta_current, theta_current = G_t * theta_current + W_t, G_t shape: 36 * 36, W_t shape: batch * 36
+                # sample W_t
+                W_t = self.W_dist.sample((batch,))  # shape: batch * dim_theta
+                theta_current = torch.bmm(Gt_expanded, theta_current[:, :, None]).squeeze(2) + W_t
+            # lambda_t = F_t * theta_current, F_t shape: 4 * 36
+            lambda_t = torch.zeros((batch, 4, self.n_days), device=self.device)  # shape: batch * 4 * days
+            # summer effect
+            if self.n_days == 365:
+                lambda_t[:, :, :88] = torch.bmm(Ft_nonsummer_expanded, theta_seq[:, :, :88])
+                lambda_t[:, :, 88:270] = torch.bmm(Ft_summer_expanded, theta_seq[:, :, 88:270])
+                lambda_t[:, :, 270:] = torch.bmm(Ft_nonsummer_expanded, theta_seq[:, :, 270:])
+            elif self.n_days == 28:
+                lambda_t[:, :, :7] = torch.bmm(Ft_nonsummer_expanded, theta_seq[:, :, :7])
+                lambda_t[:, :, 7:21] = torch.bmm(Ft_summer_expanded, theta_seq[:, :, 7:21])
+                lambda_t[:, :, 21:] = torch.bmm(Ft_nonsummer_expanded, theta_seq[:, :, 21:])
+            lambda_t = lambda_t.transpose(1, 2)  # shape: batch * days * 4
+            lambda_t[:, :, 3][lambda_t[:, :, 3] > 4.0] = 4.0
+
+            # use c++ to generate data
+            cpudv = torch.device('cpu')
+            para_c = lambda_t.cpu().type(torch.float64)  # shape: batch * days * 4
+            rand_int = torch.randint(65536, size=(batch, self.n_days, 1)).cpu()
+            para_c = torch.cat((para_c, rand_int, self.days.cpu().reshape(1, -1, 1).repeat(batch, 1, 1)), dim=2)
+            if os.sep == "\\":
+                Cfun = ctypes.WinDLL(path_to_cfun + 'state_space_with_g-and-k.dll', winmode=0)
+            else:
+                Cfun = ctypes.CDLL(path_to_cfun + 'state_space_with_g-and-k.so') 
+            n = 6 * self.n_days
+            s = 15 if os.sep == "\\" else 40  # number of threads
+            k = batch  # number of tasks
+            input_value = para_c.reshape(batch, -1)
+            output_value = torch.zeros(input_value.shape[0], input_value.shape[1], dtype=self.dtype, device=cpudv)
+            num_parts = (batch + k - 1) // k
+            for i in range(num_parts):
+                start_idx = i * k
+                end_idx = min((i + 1) * k, batch)
+                input_list = [float(s), float(k), float(self.n_days)] + input_value[start_idx:end_idx].reshape(-1).tolist()
+                c_values = (ctypes.c_double * len(input_list))(*input_list)
+                Cfun.gandk_multi_thread(c_values)
+                output_value[start_idx:end_idx] = torch.tensor([c_values[j + 3] for j in range(len(c_values) - 3)], device=cpudv).reshape(-1, n)
+            output_value = (output_value.reshape(batch, self.n_days, 6))[:, :, :4].reshape(batch, -1).to(self.device)
+            output_value.clamp_(-1e5, 1e5)
+            return output_value
         else:
             raise NotImplementedError
